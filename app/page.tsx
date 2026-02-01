@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 
-// Import our shared types
+// shared types
 import { leadSchema, LeadInput } from '@/schemas/lead';
 import { ApiResponse } from '@/schemas/api';
 
@@ -58,35 +58,35 @@ export default function LeadSubmissionPage() {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[80vh] gap-8">
-      <div className="text-center space-y-2">
-        <h1 className="text-4xl font-bold tracking-tight text-white">
+    <div className="flex flex-col items-center justify-center min-h-[80vh] gap-8 px-4 py-12">
+      <div className="text-center space-y-3">
+        <h1 className="text-3xl md:text-5xl font-bold tracking-tight text-white">
           Lead Intake <span className="text-primary">System</span>
         </h1>
-        <p className="text-muted-foreground max-w-md mx-auto">
+        {/* <p className="text-muted-foreground max-w-md mx-auto text-sm md:text-base">
           Submit your details to get qualified instantly by our AI-powered engine.
-        </p>
+        </p> */}
       </div>
 
       <Card className="w-full max-w-md border-muted bg-card/50 backdrop-blur-sm shadow-xl">
-        <CardHeader>
-          <CardTitle>Submit New Lead</CardTitle>
+        <CardHeader className="space-y-1">
+          <CardTitle className="text-2xl">Submit New Lead</CardTitle>
           <CardDescription>
             Enter the prospect's details below.
           </CardDescription>
         </CardHeader>
         <form onSubmit={form.handleSubmit(onSubmit)}>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-6">
 
             {/* Name Field */}
             <div className="space-y-2">
-              <Label htmlFor="name">Full Name</Label>
+              <Label htmlFor="name" className="text-base">Full Name</Label>
               <Input
                 id="name"
                 placeholder="Ex. Jane Doe"
                 {...form.register('name')}
                 disabled={isSubmitting}
-                className={form.formState.errors.name ? 'border-destructive' : ''}
+                className={`h-12 ${form.formState.errors.name ? 'border-destructive' : ''}`}
               />
               {form.formState.errors.name && (
                 <p className="text-xs text-destructive">{form.formState.errors.name.message}</p>
@@ -95,14 +95,14 @@ export default function LeadSubmissionPage() {
 
             {/* Email Field */}
             <div className="space-y-2">
-              <Label htmlFor="email">Email Address</Label>
+              <Label htmlFor="email" className="text-base">Email Address</Label>
               <Input
                 id="email"
                 type="email"
                 placeholder="Ex. jane@company.com"
                 {...form.register('email')}
                 disabled={isSubmitting}
-                className={form.formState.errors.email ? 'border-destructive' : ''}
+                className={`h-12 ${form.formState.errors.email ? 'border-destructive' : ''}`}
               />
               {form.formState.errors.email && (
                 <p className="text-xs text-destructive">{form.formState.errors.email.message}</p>
@@ -111,13 +111,13 @@ export default function LeadSubmissionPage() {
 
             {/* Website Field */}
             <div className="space-y-2">
-              <Label htmlFor="website">Website (Optional)</Label>
+              <Label htmlFor="website" className="text-base">Website (Optional)</Label>
               <Input
                 id="website"
                 placeholder="https://company.com"
                 {...form.register('website')}
                 disabled={isSubmitting}
-                className={form.formState.errors.website ? 'border-destructive' : ''}
+                className={`h-12 ${form.formState.errors.website ? 'border-destructive' : ''}`}
               />
               {form.formState.errors.website && (
                 <p className="text-xs text-destructive">{form.formState.errors.website.message}</p>
@@ -125,18 +125,19 @@ export default function LeadSubmissionPage() {
             </div>
 
           </CardContent>
-          <CardFooter className="flex justify-between">
+          <CardFooter className="flex flex-col-reverse sm:flex-row mt-4 justify-between gap-4 sm:gap-0">
             <Button
               variant="ghost"
               type="button"
               onClick={() => form.reset()}
               disabled={isSubmitting}
+              className="w-full sm:w-auto"
             >
               Reset
             </Button>
-            <Button type="submit" disabled={isSubmitting} className="w-32">
+            <Button type="submit" disabled={isSubmitting} className="w-full sm:w-32 h-11 text-base">
               {isSubmitting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-5 w-5 animate-spin" />
               ) : (
                 <>
                   Submit <Send className="ml-2 h-4 w-4" />

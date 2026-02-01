@@ -19,9 +19,8 @@ model Lead {
 
   // Enrichment Data
   companyName String?
-  companySize String?
-  industry    String?
   country     String?
+  emailStatus String?
 
   // Scoring & Status
   score  Int        @default(0)
@@ -30,5 +29,3 @@ model Lead {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
-
-

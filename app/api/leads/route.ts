@@ -4,6 +4,9 @@ import { LeadStatus } from '@prisma/client';
 import { enrichLead } from '@/services/enrichment';
 import { scoreLead } from '@/services/scoring';
 import { leadSchema } from '@/schemas/lead';
+
+import { checkRateLimit } from '@/lib/rate-limit';
+
 import { createSuccessResponse, createErrorResponse } from '@/schemas/api';
 
 export async function GET() {
@@ -21,11 +24,22 @@ export async function GET() {
   }
 }
 
+
 export async function POST(request: Request) {
+  // Rate Limiting
+  const ip = request.headers.get('x-forwarded-for') ?? '127.0.0.1';
+  const rateLimit = checkRateLimit(ip);
+
+  if (!rateLimit.success) {
+    return NextResponse.json(
+      createErrorResponse('Too many requests. Please try again later.'),
+      { status: 429 }
+    );
+  }
+
   try {
     const body = await request.json();
 
-    // 1. Validate Input
     const validation = leadSchema.safeParse(body);
     if (!validation.success) {
       return NextResponse.json(
@@ -36,7 +50,6 @@ export async function POST(request: Request) {
 
     const { name, email, website } = validation.data;
 
-    // 2. Check for existence
     const existing = await prisma.lead.findUnique({ where: { email } });
     if (existing) {
       return NextResponse.json(
@@ -45,7 +58,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // 3. Create Basic Lead (Requirement: Persist first)
     let lead = await prisma.lead.create({
       data: {
         name,
@@ -54,22 +66,16 @@ export async function POST(request: Request) {
       },
     });
 
-    // 4. Enrich Lead
-    // Requirement: "After a lead is stored, attempt to enrich it"
-    // Requirement: "Handle failed API calls gracefully" (Handled in service)
-    const enrichmentData = await enrichLead(email, website || undefined);
+    const enrichmentData = await enrichLead(name, email, website || undefined);
 
-    // 5. Score Lead
     const score = scoreLead({
       website: website || undefined, // undefined matches service signature better if optional
       enrichment: enrichmentData
     });
 
-    // 6. Determine Status
     // Assumption: Score >= 15 is "qualified"
     const status = score >= 15 ? LeadStatus.QUALIFIED : LeadStatus.UNQUALIFIED;
 
-    // 7. Update Lead
     lead = await prisma.lead.update({
       where: { id: lead.id },
       data: {

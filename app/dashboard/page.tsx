@@ -21,7 +21,8 @@ interface Lead {
   name: string;
   email: string;
   companyName?: string;
-  industry?: string;
+  country?: string;
+  emailStatus?: string;
   score: number;
   status: 'QUALIFIED' | 'UNQUALIFIED';
   createdAt: string;
@@ -61,8 +62,8 @@ export default function DashboardPage() {
     });
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
+    <div className="space-y-8 px-4 py-8 max-w-7xl mx-auto">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-white">Lead Dashboard</h1>
           <p className="text-muted-foreground">Manage and track your incoming leads.</p>
@@ -73,13 +74,14 @@ export default function DashboardPage() {
       </div>
 
       <Card className="bg-card/50 backdrop-blur-sm border-muted">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+        <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-4 sm:space-y-0 pb-4">
           <CardTitle>Recent Submissions</CardTitle>
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
             <Button
               variant={sortDescending ? "default" : "secondary"}
               size="sm"
               onClick={() => setSortDescending(!sortDescending)}
+              className="w-full sm:w-auto"
             >
               <ArrowUpDown className="mr-2 h-4 w-4" />
               Score {sortDescending ? '(High to Low)' : '(Low to High)'}
@@ -88,6 +90,7 @@ export default function DashboardPage() {
               variant={filterQualified ? "default" : "outline"}
               size="sm"
               onClick={() => setFilterQualified(!filterQualified)}
+              className="w-full sm:w-auto"
             >
               <Filter className="mr-2 h-4 w-4" />
               {filterQualified ? 'Show All' : 'Show Qualified Only'}
@@ -100,7 +103,7 @@ export default function DashboardPage() {
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : (
-            <div className="rounded-md border border-border">
+            <div className="rounded-md border border-border overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow className="border-border hover:bg-transparent">
@@ -121,13 +124,20 @@ export default function DashboardPage() {
                   ) : (
                     visibleLeads.map((lead) => (
                       <TableRow key={lead.id} className="border-border hover:bg-muted/50">
-                        <TableCell className="font-medium">{lead.name}</TableCell>
-                        <TableCell className="text-muted-foreground">{lead.email}</TableCell>
-                        <TableCell>
+                        <TableCell className="font-medium whitespace-nowrap">{lead.name}</TableCell>
+                        <TableCell className="text-muted-foreground whitespace-nowrap">{lead.email}</TableCell>
+                        <TableCell className="min-w-[150px]">
                           {lead.companyName ? (
                             <div className="flex flex-col">
-                              <span>{lead.companyName}</span>
-                              <span className="text-xs text-muted-foreground">{lead.industry}</span>
+                              <span className="font-medium">{lead.companyName}</span>
+                              <div className="flex gap-2 text-xs text-muted-foreground flex-wrap">
+                                {lead.country && <span>{lead.country}</span>}
+                                {lead.emailStatus && (
+                                  <Badge variant="outline" className="text-[10px] h-4 px-1 py-0 border-muted-foreground/30">
+                                    {lead.emailStatus}
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
                           ) : (
                             <span className="text-muted-foreground italic">N/A</span>
