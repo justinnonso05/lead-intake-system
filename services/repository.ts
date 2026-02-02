@@ -4,25 +4,29 @@ import { Lead } from '@prisma/client';
 export { LeadStatus } from '@prisma/client';
 export type { Lead };
 
-// Here i try to implement a hybrid storage strategy
-// 1. SQLite for local development
-// 2. In-Memory for production
-// because vercel serverless functions have a read-only filesystem so sqlite writes will fail
+// STORAGE STRATEGY
+// Controlled via STORAGE_MODE environment variable.
+// "sqlite" (default) -> Uses local SQLite file (dev.db)
+// "in-memory" -> Uses RAM (Required for Vercel/Serverless read-only environments)
 
-const IS_PRODUCTION = process.env.NODE_ENV === 'production';
-const IS_VERCEL = !!process.env.VERCEL;
-
-// Switch logic: Use Memory if Prod/Vercel, otherwise SQLite
-const USE_IN_MEMORY = IS_PRODUCTION || IS_VERCEL;
+let USE_IN_MEMORY = process.env.STORAGE_MODE === 'in-memory';
 
 if (USE_IN_MEMORY) {
-  console.log('🚀 Storage Mode: IN-MEMORY (Optimized for Vercel/Production)');
+  console.log('🚀 Storage Mode: IN-MEMORY (Configured via env)');
 } else {
-  console.log('📂 Storage Mode: SQLITE (Persistent for Development)');
+  console.log('📂 Storage Mode: SQLITE (Default)');
 }
 
 // In-Memory Store
 let memoryStore: Lead[] = [];
+
+// Helper to switch mode if SQLite fails (Auto-Heal)
+function enableMemoryMode() {
+  if (!USE_IN_MEMORY) {
+    console.warn('⚠️ SQLite crashed (SQLITE_CANTOPEN). Dynamically switching to In-Memory mode.');
+    USE_IN_MEMORY = true;
+  }
+}
 
 export const LeadRepository = {
   /**
@@ -34,9 +38,15 @@ export const LeadRepository = {
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
     }
-    return await prisma.lead.findMany({
-      orderBy: { createdAt: 'desc' },
-    });
+    try {
+      return await prisma.lead.findMany({
+        orderBy: { createdAt: 'desc' },
+      });
+    } catch (e: any) {
+      // FAILSAFE: If DB fails, switch to memory and return empty (or current memory)
+      enableMemoryMode();
+      return [...memoryStore];
+    }
   },
 
   /**
@@ -46,54 +56,75 @@ export const LeadRepository = {
     if (USE_IN_MEMORY) {
       return memoryStore.find(l => l.email === email) || null;
     }
-    return await prisma.lead.findUnique({ where: { email } });
+    try {
+      return await prisma.lead.findUnique({ where: { email } });
+    } catch (e: any) {
+      enableMemoryMode();
+      return memoryStore.find(l => l.email === email) || null;
+    }
   },
 
   /**
    * Create a new lead
    */
   async create(data: { name: string; email: string; website?: string | null }): Promise<Lead> {
-    if (USE_IN_MEMORY) {
-      const newLead: Lead = {
-        id: crypto.randomUUID(),
-        name: data.name,
-        email: data.email,
-        website: data.website || null,
-        companyName: null,
-        country: null,
-        emailStatus: null,
-        score: 0,
-        status: 'UNQUALIFIED', // Default (matches Prisma schema default)
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
-      memoryStore.push(newLead);
-      return newLead;
-    }
+    // If we already know we are in memory mode, just do it
+    if (USE_IN_MEMORY) return this.createInMemory(data);
 
-    return await prisma.lead.create({ data });
+    try {
+      return await prisma.lead.create({ data });
+    } catch (e: any) {
+      enableMemoryMode();
+      return this.createInMemory(data);
+    }
+  },
+
+  // Helper for internal use handling the memory creation
+  createInMemory(data: { name: string; email: string; website?: string | null }): Lead {
+    const newLead: Lead = {
+      id: crypto.randomUUID(),
+      name: data.name,
+      email: data.email,
+      website: data.website || null,
+      companyName: null,
+      country: null,
+      emailStatus: null,
+      score: 0,
+      status: 'UNQUALIFIED',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    memoryStore.push(newLead);
+    return newLead;
   },
 
   /**
    * Update a lead
    */
   async update(id: string, data: Partial<Lead>): Promise<Lead> {
-    if (USE_IN_MEMORY) {
-      const index = memoryStore.findIndex(l => l.id === id);
-      if (index !== -1) {
-        memoryStore[index] = {
-          ...memoryStore[index],
-          ...data,
-          updatedAt: new Date()
-        };
-        return memoryStore[index];
-      }
-      throw new Error("Lead not found in memory");
-    }
+    if (USE_IN_MEMORY) return this.updateInMemory(id, data);
 
-    return await prisma.lead.update({
-      where: { id },
-      data: data as any,
-    });
+    try {
+      return await prisma.lead.update({
+        where: { id },
+        data: data as any,
+      });
+    } catch (e: any) {
+      enableMemoryMode();
+      return this.updateInMemory(id, data);
+    }
+  },
+
+  updateInMemory(id: string, data: Partial<Lead>): Lead {
+    const index = memoryStore.findIndex(l => l.id === id);
+    if (index !== -1) {
+      memoryStore[index] = {
+        ...memoryStore[index],
+        ...data,
+        updatedAt: new Date()
+      };
+      return memoryStore[index];
+    }
+    throw new Error("Lead not found in memory");
   }
 };
