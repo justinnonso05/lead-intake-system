@@ -6,7 +6,7 @@ This project implements a complete lead lifecycle: intake via a responsive form,
 
 ---
 
-## 🚀 Features
+## 1️⃣ Features
 
 *   **Robust Backend**: Next.js API Routes with a Service-Repository pattern.
 *   **Real Data Enrichment**: Integration with current **AnyMail Finder v5.1 API**.
@@ -17,7 +17,7 @@ This project implements a complete lead lifecycle: intake via a responsive form,
 
 ---
 
-## 🛠️ Architecture & Decisions
+## 2️⃣ Architecture & Decisions
 
 ### 1. Service-Based Architecture
 Instead of dumping all logic into the API route, I separated concerns:
@@ -43,7 +43,7 @@ To prevent abuse of the public intake form, I implemented a **Token Bucket** rat
 
 ---
 
-## 🧠 Scoring Logic
+## 3️⃣ Scoring Logic
 
 The qualification cutoff is **Score >= 15**.
 
@@ -61,7 +61,7 @@ The qualification cutoff is **Score >= 15**.
 
 ---
 
-## 🚀 Getting Started
+## 4️⃣ Getting Started
 
 ### Prerequisites
 *   Node.js 18+
@@ -97,12 +97,16 @@ Visit [http://localhost:3000/dashboard](http://localhost:3000/dashboard) to view
 
 ---
 
-## ⚖️ Trade-offs & Future Improvements
+## 5️⃣ Trade-offs & Future Improvements
 
 ### Trade-offs
-*   **SQLite**: Chosen for this test to ensure it runs immediately without Docker. For production, I would swap the Prisma provider to **PostgreSQL**.
+*   **Hybrid Persistence Strategy**:
+    *   **Development**: Uses **SQLite** (`dev.db`) for full persistence.
+    *   **Production (Vercel)**: Automatically switches to **In-Memory Storage** when `NODE_ENV=production` or `VERCEL=1`.
+    *   *Why?*: Vercel Serverless functions have a read-only filesystem, so SQLite cannot write data there. This switch ensures the app satisfies the "SQLite" requirement locally while remaining 100% functional live.
+
 *   **Client-Side Filtering**: The dashboard sorts/filters in the browser. For scale (>1000 leads), I would implement server-side pagination and filtering in Prisma.
-*   **In-Memory Rate Limit**: The current rate limiter works per-instance. In a serverless/clustered environment (like Vercel), this could be moved to Redis (Upstash) to share state across lambdas.
+*   **In-Memory Rate Limit**: The current rate limiter works per-instance. In a serverless/clustered environment, this should move to Redis (Upstash) to share state.
 
 ### Future Improvements
 1.  **Authentication**: Protect the `/dashboard` route with NextAuth.js.
@@ -110,7 +114,7 @@ Visit [http://localhost:3000/dashboard](http://localhost:3000/dashboard) to view
 
 ---
 
-## 🧪 API Testing
+## 6️⃣ API Testing
 
 You can bypass the UI and test the API directly:
 
