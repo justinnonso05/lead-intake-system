@@ -1,29 +1,23 @@
 import { NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
-import { LeadStatus } from '@prisma/client';
 import { enrichLead } from '@/services/enrichment';
 import { scoreLead } from '@/services/scoring';
 import { leadSchema } from '@/schemas/lead';
-
 import { checkRateLimit } from '@/lib/rate-limit';
-
 import { createSuccessResponse, createErrorResponse } from '@/schemas/api';
+import { LeadRepository, LeadStatus } from '@/services/repository';
 
 export async function GET() {
   try {
-    const leads = await prisma.lead.findMany({
-      orderBy: { createdAt: 'desc' },
-    });
+    const leads = await LeadRepository.getAll();
     return NextResponse.json(createSuccessResponse(leads), { status: 200 });
   } catch (error) {
-    console.error('Error fetching leads:', error);
+    console.error('Fetch error:', error);
     return NextResponse.json(
       createErrorResponse('Failed to fetch leads'),
       { status: 500 }
     );
   }
 }
-
 
 export async function POST(request: Request) {
   // Rate Limiting
@@ -50,7 +44,8 @@ export async function POST(request: Request) {
 
     const { name, email, website } = validation.data;
 
-    const existing = await prisma.lead.findUnique({ where: { email } });
+    // 1. Check Existence (Repository handles DB/Memory switch)
+    const existing = await LeadRepository.findByEmail(email);
     if (existing) {
       return NextResponse.json(
         createErrorResponse('Lead with this email already exists'),
@@ -58,39 +53,42 @@ export async function POST(request: Request) {
       );
     }
 
-    let lead = await prisma.lead.create({
-      data: {
-        name,
-        email,
-        website: website || null,
-      },
+    // 2. Create Basic Lead
+    let lead = await LeadRepository.create({
+      name,
+      email,
+      website: website || null,
     });
 
+    // 3. Enrich
     const enrichmentData = await enrichLead(name, email, website || undefined);
 
+    // 4. Score
+    // Note: scoreLead expects { website?: string; enrichment: ... }
     const score = scoreLead({
-      website: website || undefined, // undefined matches service signature better if optional
+      website: website || undefined,
       enrichment: enrichmentData
     });
 
-    // Assumption: Score >= 15 is "qualified"
+    // 5. Determine Status
     const status = score >= 15 ? LeadStatus.QUALIFIED : LeadStatus.UNQUALIFIED;
 
-    lead = await prisma.lead.update({
-      where: { id: lead.id },
-      data: {
-        ...enrichmentData,
-        score,
-        status,
-      },
+    // 6. Update
+    lead = await LeadRepository.update(lead.id, {
+      ...enrichmentData,
+      score,
+      status,
     });
 
-    return NextResponse.json(createSuccessResponse(lead, 'Lead submitted successfully'), { status: 201 });
-
-  } catch (error) {
-    console.error('Error submitting lead:', error);
     return NextResponse.json(
-      createErrorResponse('Internal Server Error'),
+      createSuccessResponse(lead, 'Lead submitted successfully'),
+      { status: 201 }
+    );
+
+  } catch (error: any) {
+    console.error('Submission error:', error);
+    return NextResponse.json(
+      createErrorResponse('Internal Server Error', error.message),
       { status: 500 }
     );
   }
